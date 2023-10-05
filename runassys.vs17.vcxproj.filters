@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{587EA476-1ADB-15BC-031C-6C103218EA3D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{03F492BC-257F-FF3E-860A-AA2259F1F689}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Scripts">
+      <UniqueIdentifier>{8ACE6848-7EDB-C779-DDCE-46EAD89D88AA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Special Files">
+      <UniqueIdentifier>{DB96C9D1-9DC0-3827-7001-C58E9A4BC43E}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="buildinc.cmd">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="ddkbldenv.cmd">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="ddkbuild.cmd">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="ddkpostbld.cmd">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="ddkprebld.cmd">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="premake4.lua">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="Directory.Build.props">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="project.early.props">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include="project.late.props">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include=".editorconfig">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include=".clang-format">
+      <Filter>Special Files</Filter>
+    </None>
+    <None Include=".gitignore">
+      <Filter>Special Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="buildnumber.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exeversion.h">
+      <Filter>Resource Scripts</Filter>
+    </ClInclude>
+    <ClInclude Include="ntnative.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="runassys.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="runassys.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="exeversion.rc">
+      <Filter>Resource Scripts</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

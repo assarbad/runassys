@@ -1,0 +1,16 @@
+buildnumber.h
+build*.log
+BuildLog.htm
+*.wrn
+*.err
+.vs/
+bin/
+obj/
+objfre_*/
+objchk_*/
+*.suo
+*.ncb
+*.user
+*.pdb
+*.ilk
+*.exe
