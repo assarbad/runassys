@@ -40,7 +40,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __NTNATIVE_H_VER__
-#define __NTNATIVE_H_VER__ 2023100520
+#define __NTNATIVE_H_VER__ 2023100621
 #if (defined(_MSC_VER) && (_MSC_VER >= 1020)) || defined(__MCPP)
 #    pragma once
 #endif // Check for "#pragma once" support
@@ -101,6 +101,10 @@
 #    define _Post_invalid_
 #endif
 
+#ifndef _Post_ptr_invalid_
+#    define _Post_ptr_invalid_
+#endif
+
 #ifndef _Notnull_
 #    define _Notnull_
 #endif
@@ -159,6 +163,10 @@
 
 #ifndef _Writable_elements_
 #    define _Writable_elements_(x)
+#endif
+
+#ifndef _In_opt_z_
+#    define _In_opt_z_
 #endif
 
 #if defined(DDKBUILD)
@@ -256,9 +264,19 @@ extern "C"
         ULONG_PTR Information;
     } IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
-#    define RtlMoveMemory(Destination, Source, Length) memmove((Destination), (Source), (Length)) // use __movsb?
-#    define RtlFillMemory(Destination, Length, Fill)   memset((Destination), (Fill), (Length))    // use __stosb?
-#    define RtlZeroMemory(Destination, Length)         memset((Destination), 0, (Length))
+#    ifndef RtlMoveMemory
+#        define RtlMoveMemory(Destination, Source, Length) memmove((Destination), (Source), (Length)) // use __movsb?
+#    endif
+#    ifndef RtlFillMemory
+#        define RtlFillMemory(Destination, Length, Fill) memset((Destination), (Fill), (Length)) // use __stosb?
+#    endif
+#    ifndef RtlZeroMemory
+#        define RtlZeroMemory(Destination, Length) memset((Destination), 0, (Length))
+#    endif
+
+#    ifndef OBJ_INHERIT
+#        define OBJ_INHERIT 0x00000002L
+#    endif
 
     NTSTATUS
     NTAPI
@@ -609,7 +627,7 @@ extern "C"
 
     typedef struct _SECTIONBASICINFO
     {
-        PVOID BaseAddress;
+        PVOID BaseAddress; //-V122
         ULONG AllocationAttributes;
         LARGE_INTEGER MaximumSize;
     } SECTION_BASIC_INFORMATION, *PSECTION_BASIC_INFORMATION;
@@ -618,7 +636,7 @@ extern "C"
 #pragma warning(disable : 4201 4214)
     typedef struct _SECTION_IMAGE_INFORMATION
     {
-        PVOID TransferAddress;
+        PVOID TransferAddress; //-V122
         ULONG ZeroBits;
         ULONG MaximumStackSize;
         ULONG CommittedStackSize;
@@ -852,8 +870,8 @@ extern "C"
     typedef struct _RTL_RELATIVE_NAME
     {
         UNICODE_STRING RelativeName;
-        HANDLE ContainingDirectory;
-        void* CurDirRef;
+        HANDLE ContainingDirectory; //-V122
+        void* CurDirRef;            //-V122
     } RTL_RELATIVE_NAME, *PRTL_RELATIVE_NAME;
 
     typedef enum
@@ -1815,11 +1833,11 @@ namespace NT
     namespace
     { // NB: these are intentionally defined in terms of C++ types rather than "Windows" types
         // Modern C++: wchar_t const (&SystemRoot)[260] = (decltype(SystemRoot))(*(wchar_t*)(MM_SHARED_USER_DATA_VA + 0x30));
-        wchar_t const (&SystemRoot)[260] = (wchar_t const (&)[260])(*(wchar_t*)(MM_SHARED_USER_DATA_VA + 0x30));
+        wchar_t const (&SystemRoot)[260] = (wchar_t const (&)[260])(*(wchar_t*)(MM_SHARED_USER_DATA_VA + 0x30)); //-V542
         unsigned short const& NativeProcessorArchitecture = *((unsigned short*)(MM_SHARED_USER_DATA_VA + 0x026a));
-        unsigned long const& MajorVersion = *((unsigned long*)(MM_SHARED_USER_DATA_VA + 0x026c));
-        unsigned long const& MinorVersion = *((unsigned long*)(MM_SHARED_USER_DATA_VA + 0x0270));
-    } // namespace
+        unsigned long const& MajorVersion = *((unsigned long*)(MM_SHARED_USER_DATA_VA + 0x026c)); //-V206 //-V126
+        unsigned long const& MinorVersion = *((unsigned long*)(MM_SHARED_USER_DATA_VA + 0x0270)); //-V206 //-V126
+    }                                                                                             // namespace
 #        define NTNATIVE_
 #    endif
 } // namespace NT

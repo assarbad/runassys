@@ -31,7 +31,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __RUNASSYS_H_VERSION__
-#define __RUNASSYS_H_VERSION__ 2023100122
+#define __RUNASSYS_H_VERSION__ 2023100621
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #    pragma once
@@ -43,11 +43,18 @@
 #include <WinSvc.h>
 #include <strsafe.h>
 #include <userenv.h>
+#ifndef _MSVC_LANG
+#    pragma warning(push)
+#    pragma warning(disable : 4995)
+#endif // _MSVC_LANG
 #include <cstdio>
+#ifndef _MSVC_LANG
+#    pragma warning(pop)
+#endif // _MSVC_LANG
 #include "ntnative.h"
 
-#ifndef _MVSC_LANG
-#    define nullptr NULL
+#ifndef _MSVC_LANG
+#    define nullptr NULL //-V1059
 #endif
 
 namespace RAS
@@ -80,11 +87,11 @@ namespace RAS
         }
 
         BOOL WINAPI DuplicateTokenEx(HANDLE hExistingToken,
-            DWORD dwDesiredAccess,
-            LPSECURITY_ATTRIBUTES lpTokenAttributes,
-            SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
-            TOKEN_TYPE TokenType,
-            PHANDLE phNewToken)
+                                     DWORD dwDesiredAccess,
+                                     LPSECURITY_ATTRIBUTES lpTokenAttributes,
+                                     SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
+                                     TOKEN_TYPE TokenType,
+                                     PHANDLE phNewToken)
         {
             OBJECT_ATTRIBUTES oa;
             InitializeObjectAttributes(&oa, NULL, 0, NULL, NULL);
@@ -104,11 +111,11 @@ namespace RAS
             BaseSetLastNTError(Status);
             return FALSE;
         }
-    }
+    } // namespace impl
 
     class CLocalServiceMgr
     {
-        SC_HANDLE m_hSCM;
+        SC_HANDLE m_hSCM; //-V122
         LONG m_lLastError;
 
       public:
@@ -158,7 +165,7 @@ namespace RAS
         }
 
       private:
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CLocalServiceMgr& operator=(CLocalServiceMgr const&) = delete;
         CLocalServiceMgr(CLocalServiceMgr const&) = delete;
 #else
@@ -171,10 +178,14 @@ namespace RAS
     class CSvcHandle
     {
         CLocalServiceMgr& m_SCM;
-        SC_HANDLE m_hSvc;
+        SC_HANDLE m_hSvc; //-V122
         mutable LONG m_lLastError;
         mutable BOOL m_bProcessInfoQueried;
+#ifdef _MSVC_LANG
+        mutable SERVICE_STATUS_PROCESS m_StatusProcessInfo{};
+#else
         mutable SERVICE_STATUS_PROCESS m_StatusProcessInfo;
+#endif
 
       public:
         CSvcHandle(CLocalServiceMgr& scm, __in LPCTSTR lpServiceName, __in DWORD dwDesiredAccess)
@@ -286,7 +297,6 @@ namespace RAS
             if (!m_bProcessInfoQueried || bQueryAnew)
             {
                 DWORD dwNeeded = 0;
-                SERVICE_STATUS_PROCESS ssp = {0};
                 m_bProcessInfoQueried =
                     ::QueryServiceStatusEx(m_hSvc, SC_STATUS_PROCESS_INFO, (LPBYTE)&m_StatusProcessInfo, sizeof(m_StatusProcessInfo), &dwNeeded);
                 if (!m_bProcessInfoQueried)
@@ -297,7 +307,7 @@ namespace RAS
             }
         }
 
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CSvcHandle() = delete;
         CSvcHandle& operator=(CSvcHandle const&) = delete;
         CSvcHandle(CSvcHandle const&) = delete;
@@ -314,7 +324,7 @@ namespace RAS
         class CEnvironmentBlock
         {
           protected:
-            LPVOID m_lpEnvironmentBlock;
+            LPVOID m_lpEnvironmentBlock; //-V122
             LONG m_lLastError;
 
           public:
@@ -362,7 +372,7 @@ namespace RAS
                 Destroy();
             }
 
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
             CEnvironmentBlock() = delete;
             CEnvironmentBlock& operator=(CEnvironmentBlock const&) = delete;
             CEnvironmentBlock(CEnvironmentBlock const&) = delete;
@@ -374,7 +384,7 @@ namespace RAS
             friend class CToken;
         };
 
-        HANDLE m_hToken;
+        HANDLE m_hToken; //-V122
         mutable LONG m_lLastError;
 
         explicit CToken(HANDLE hToken)
@@ -393,6 +403,7 @@ namespace RAS
                 rvalue.m_hToken = NULL;
                 rvalue.m_lLastError = ERROR_SUCCESS;
             }
+            return *this;
         }
 
         CToken(CToken& rvalue)
@@ -422,7 +433,7 @@ namespace RAS
         }
 
         PROCESS_INFORMATION CreateProcessAsUser(LPWSTR lpCommandLine = NULL,
-                                                LPWSTR lpCurrentDirectory = NULL,
+                                                LPCWSTR lpCurrentDirectory = NULL,
                                                 DWORD dwCreationFlags = CREATE_BREAKAWAY_FROM_JOB)
         {
             dwCreationFlags |= CREATE_UNICODE_ENVIRONMENT; // needed with CreateEnvironmentBlock() below
@@ -430,28 +441,17 @@ namespace RAS
             si.cb = sizeof(STARTUPINFO);
             si.lpDesktop = (LPWSTR)L"WinSta0\\Default"; // TODO/FIXME: must be correctly determined
             PROCESS_INFORMATION pi = {0};
-            WCHAR szSystemDirectory[MAX_PATH] = {0};
-
-            if (!::GetSystemDirectory(szSystemDirectory, _countof(szSystemDirectory)))
-            {
-                m_lLastError = ::GetLastError();
-                fwprintf(stderr, L"ERROR: GetSystemDirectory() failed (status=%d)\n", m_lLastError);
-                return pi;
-            }
 
             if (!lpCurrentDirectory)
             {
-                lpCurrentDirectory = szSystemDirectory;
+                lpCurrentDirectory = NT::SystemRoot; // szSystemDirectory;
             }
 
             WCHAR szCommandLine[MAX_PATH] = {0};
             if (!lpCommandLine)
             {
-#ifdef _MSVC_LANG
-                static_assert(sizeof(szCommandLine) == sizeof(szSystemDirectory), "Must be of same size");
-#endif
-                memcpy(szCommandLine, szSystemDirectory, sizeof(szCommandLine));
-                (void)wcsncat_s(szCommandLine, L"\\cmd.exe", _countof(szCommandLine));
+                memcpy(szCommandLine, NT::SystemRoot, sizeof(szCommandLine));
+                (void)wcsncat_s(szCommandLine, L"\\System32\\cmd.exe", _countof(szCommandLine));
                 lpCommandLine = szCommandLine;
             }
 
@@ -474,7 +474,7 @@ namespace RAS
             {
                 if (!impl::DuplicateTokenEx(m_hToken, dwDesiredAccess, NULL, ImpersonationLevel, TokenType, &hDuplicatedToken))
                 {
-                    fwprintf(stderr, L"ERROR: DuplicateTokenEx() failed (status=%d)\n", ::GetLastError());
+                    fwprintf(stderr, L"ERROR: DuplicateTokenEx() failed (status=%u)\n", ::GetLastError());
                 }
             }
             return CToken(hDuplicatedToken);
@@ -564,7 +564,7 @@ namespace RAS
 
         inline BOOL DisablePrivilege(LPCTSTR lpPrivilegeName) const
         {
-            return SetPrivilege(lpPrivilegeName, TRUE);
+            return SetPrivilege(lpPrivilegeName, FALSE);
         }
 
       protected:
@@ -590,7 +590,7 @@ namespace RAS
             return hToken;
         }
 
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CToken() = delete;
 #else
         CToken();
@@ -626,7 +626,7 @@ namespace RAS
             Inherited::Close();
         }
 
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CThreadToken& operator=(CThreadToken const&) = delete;
         CThreadToken(CThreadToken const&) = delete;
 #else
@@ -663,7 +663,7 @@ namespace RAS
             Inherited::Close();
         }
 
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CProcessToken& operator=(CProcessToken const&) = delete;
         CProcessToken(CProcessToken const&) = delete;
 #else
@@ -674,11 +674,16 @@ namespace RAS
 
     class CCreatedProcess
     {
-        HANDLE m_hParentProc;
+        HANDLE m_hParentProc; //-V122
         LONG m_lLastError;
         BOOL m_bFullyInitialized;
+#ifdef _MSVC_LANG
+        STARTUPINFOEX m_StartupInfo{};
+        PROCESS_INFORMATION m_ProcessInfo{};
+#else
         STARTUPINFOEX m_StartupInfo;
         PROCESS_INFORMATION m_ProcessInfo;
+#endif
 
       public:
         CCreatedProcess(DWORD dwParentPid, LPCTSTR lpCmdLine = TEXT("C:\\Windows\\System32\\cleanmgr.exe"))
@@ -727,7 +732,7 @@ namespace RAS
                 return;
             }
             if (!::UpdateProcThreadAttribute(
-                    m_StartupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, &m_hParentProc, sizeof(m_hParentProc), NULL, NULL))
+                    m_StartupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, &m_hParentProc, sizeof(m_hParentProc), NULL, NULL)) //-V616
             {
                 m_lLastError = ::GetLastError();
                 fwprintf(stderr, L"ERROR: failed to update process thread attribute\n");
@@ -863,7 +868,7 @@ namespace RAS
         }
 
       private:
-#ifdef _MVSC_LANG
+#ifdef _MSVC_LANG
         CCreatedProcess() = delete;
         CCreatedProcess& operator=(CCreatedProcess const&) = delete;
         CCreatedProcess(CCreatedProcess const&) = delete;

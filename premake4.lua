@@ -13,6 +13,22 @@
 // SPDX-License-Identifier: Unlicense
   ]]
 local action = _ACTION or ""
+local function legacy_names(input) -- transform the macro names for older Visual Studio versions
+    local new_map   = { vs2002 = 0, vs2003 = 0, vs2005 = 0, vs2008 = 0 }
+    local replacements = { Platform = "PlatformName", Configuration = "ConfigurationName" }
+    if new_map[action] ~= nil then
+        for k,v in pairs(replacements) do
+            print("Finding: " .. k)
+            if input:find(k, 1, true) then
+                print("Found: " .. k)
+                k = "%$%(" .. k .. "%)"
+                v = "%$%(" .. v .. "%)"
+                input = input:gsub(k, v)
+            end
+        end
+    end
+    return input
+end
 
 solution ("runassys")
     configurations  {"Debug", "Release"}
@@ -25,8 +41,6 @@ solution ("runassys")
         kind            ("ConsoleApp")
         flags           {"Unicode", "NoPCH", "NoMinimalRebuild", "Symbols",}
         defines         {"WIN32", "_WINDOWS", "STRICT", "WINVER=0x0600",}
-        libdirs         {"$(IntDir)"}
-        links           {"ntdll",}
         resoptions      {"/nologo", "/l409"}
 
         files
@@ -65,8 +79,29 @@ solution ("runassys")
             defines         {"_DEBUG"}
 
         configuration {"Release"}
+            prebuildcommands{"call buildinc.cmd",}
             defines         {"NDEBUG"}
             flags           {"Optimize", "NoIncrementalLink", "NoEditAndContinue"}
+
+        configuration {"vs2002 or vs2003 or vs2005 or vs2008"}
+            local int_dir   = legacy_names(iif(release, "release_", "").."obj\\" .. iif(_ACTION, _ACTION .. "_", "") .. "$(ProjectName).$(Platform).$(Configuration)\\")
+            targetdir       ("bin" .. iif(_ACTION, "\\" .. _ACTION, ""))
+            objdir          (int_dir)
+            libdirs         {"$(IntDir)"}
+            links           {"ntdll",}
+            linkoptions     {"/pdbaltpath:%_PDB%"}
+
+        configuration {"vs2002 or vs2003 or vs2005 or vs2008", "Debug", "x32"}
+            targetsuffix    ("32D")
+
+        configuration {"vs2002 or vs2003 or vs2005 or vs2008", "Debug", "x64"}
+            targetsuffix    ("64D")
+
+        configuration {"vs2002 or vs2003 or vs2005 or vs2008", "Release", "x32"}
+            targetsuffix    ("32")
+
+        configuration {"vs2002 or vs2003 or vs2005 or vs2008", "Release", "x64"}
+            targetsuffix    ("64")
 
 do
     -- Some tags we suppress as we override those from the project.props file

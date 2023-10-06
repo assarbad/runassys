@@ -23,6 +23,7 @@
 		</ClCompile>
 		<Link Condition="'$(ConfigurationType)' != 'StaticLibrary'">
 			<AdditionalOptions>%(AdditionalOptions) /Brepro</AdditionalOptions>
+			<AdditionalDependencies>%(AdditionalDependencies);ntdll.lib</AdditionalDependencies>
 		</Link>
 		<Lib Condition="'$(ConfigurationType)' == 'StaticLibrary'">
 			<AdditionalOptions>%(AdditionalOptions) /Brepro</AdditionalOptions>

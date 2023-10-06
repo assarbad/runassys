@@ -3,5 +3,7 @@
 # file to this component.  This file merely indirects to the real make file
 # that is shared by all the  components of the Windows NT DDK
 #
+# Vista
+MINIMUM_NT_TARGET_VERSION=0x600
 
 !INCLUDE $(NTMAKEENV)\makefile.def

@@ -78,7 +78,7 @@ int StartAsLocalSystem()
     }
 
     // Duplicate the token as an impersonation token
-    CToken ImpersonationToken = ChildToken.Duplicate(SecurityImpersonation);
+    CToken ImpersonationToken(ChildToken.Duplicate(SecurityImpersonation));
     if (!ImpersonationToken)
     {
         // TODO/FIXME: show last error
@@ -108,7 +108,7 @@ int StartAsLocalSystem()
     ChildToken.Close();
 
     // Convert the existing impersonation token to a primary token usable with CreateProcessAsUser()
-    CToken PrimaryToken = SystemToken.Duplicate(TOKEN_ALL_ACCESS, SecurityImpersonation, TokenPrimary);
+    CToken PrimaryToken(SystemToken.Duplicate(TOKEN_ALL_ACCESS, SecurityImpersonation, TokenPrimary));
     if (!PrimaryToken)
     {
         // TODO/FIXME: show last error

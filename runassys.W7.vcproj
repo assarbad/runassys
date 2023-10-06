@@ -633,6 +633,10 @@
 			Filter="h;hpp;hxx"
 			>
 			<File
+				RelativePath=".\ntnative.h"
+				>
+			</File>
+			<File
 				RelativePath=".\runassys.h"
 				>
 			</File>
@@ -680,6 +684,10 @@
 			</File>
 			<File
 				RelativePath=".\makefile"
+				>
+			</File>
+			<File
+				RelativePath=".\makefile.inc"
 				>
 			</File>
 			<File
