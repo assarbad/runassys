@@ -40,7 +40,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __NTNATIVE_H_VER__
-#define __NTNATIVE_H_VER__ 2023100621
+#define __NTNATIVE_H_VER__ 2023100821
 #if (defined(_MSC_VER) && (_MSC_VER >= 1020)) || defined(__MCPP)
 #    pragma once
 #endif // Check for "#pragma once" support
@@ -169,27 +169,42 @@
 #    define _In_opt_z_
 #endif
 
+#ifndef _Printf_format_string_
+#    define _Printf_format_string_
+#endif
+
 #if defined(DDKBUILD)
+#    define NtCurrentTeb NtCurrentTeb_Mock
 #    include <WinDef.h>
+#    undef NtCurrentTeb
 #else
 #    pragma push_macro("NTSYSCALLAPI")
 #    ifdef NTSYSCALLAPI
 #        undef NTSYSCALLAPI
 #        define NTSYSCALLAPI
 #    endif
+#    pragma warning(push)
 #    pragma warning(disable : 4201)
 #    define OBJECT_INFORMATION_CLASS  OBJECT_INFORMATION_CLASS_MOCK
 #    define _OBJECT_INFORMATION_CLASS _OBJECT_INFORMATION_CLASS_MOCK
+#    define _TEB                      _TEB_MOCK
+#    define TEB                       TEB_MOCK
+#    define PTEB                      PTEB_MOCK
 #    define ObjectBasicInformation    ObjectBasicInformation_Mock
 #    define ObjectTypeInformation     ObjectTypeInformation_Mock
 #    define NtQueryObject             NtQueryObject_Mock
+#    define NtCurrentTeb              NtCurrentTeb_Mock
 #    include <winternl.h>
 #    undef OBJECT_INFORMATION_CLASS
 #    undef _OBJECT_INFORMATION_CLASS
+#    undef _TEB
+#    undef TEB
+#    undef PTEB
 #    undef ObjectBasicInformation
 #    undef ObjectTypeInformation
 #    undef NtQueryObject
-#    pragma warning(default : 4201)
+#    undef NtCurrentTeb
+#    pragma warning(pop)
 #    pragma pop_macro("NTSYSCALLAPI")
 #endif // DDKBUILD
 #pragma warning(push)
@@ -1275,6 +1290,12 @@ extern "C"
 
     VOID NTAPI RtlCopyLuid(_Out_ PLUID DestinationLuid, _In_ PLUID SourceLuid);
 
+#    if 0 && (NTDDI_VERSION >= NTDDI_WINXP)
+    ULONG
+    NTAPI
+    RtlSetLastWin32Error(DWORD dwError);
+#    endif // (NTDDI_VERSION >= NTDDI_WINXP)
+
     // Path processing (Rtl)
 
     RTL_PATH_TYPE
@@ -1512,6 +1533,27 @@ extern "C"
     NTAPI
     RtlImageRvaToVa(_In_ PIMAGE_NT_HEADERS NtHeaders, _In_ PVOID Base, _In_ ULONG Rva, _Inout_opt_ PIMAGE_SECTION_HEADER* LastRvaSection);
 
+    // Debugging
+    ULONG
+    __cdecl DbgPrint(_In_z_ _Printf_format_string_ PCSTR Format, ...);
+
+#    if (NTDDI_VERSION >= NTDDI_WINXP)
+    ULONG
+    __cdecl DbgPrintEx(_In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ _Printf_format_string_ PCSTR Format, ...);
+#    endif
+
+#    ifdef _VA_LIST_DEFINED
+#        if (NTDDI_VERSION >= NTDDI_WINXP)
+    ULONG
+    NTAPI
+    vDbgPrintEx(_In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ PCCH Format, _In_ va_list arglist);
+
+    ULONG
+    NTAPI
+    vDbgPrintExWithPrefix(_In_z_ PCCH Prefix, _In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ PCCH Format, _In_ va_list arglist);
+#        endif
+#    endif // _VA_LIST_DEFINED
+
 #endif // DYNAMIC_NTNATIVE
     // clang-format off
     // Creating object types
@@ -1580,6 +1622,9 @@ extern "C"
     typedef NTSTATUS(NTAPI* RtlLeaveCriticalSection_t)(_In_ PRTL_CRITICAL_SECTION);
     typedef NTSTATUS(NTAPI* RtlGetVersion_t)(LPOSVERSIONINFOEXW);
     typedef VOID(NTAPI* RtlCopyLuid_t)(_Out_ PLUID, _In_ PLUID);
+#    if (NTDDI_VERSION >= NTDDI_WINXP)
+    typedef ULONG (NTAPI RtlSetLastWin32Error_t)(DWORD dwError);
+#endif // (NTDDI_VERSION >= NTDDI_WINXP)
     // Path processing (Rtl)
     typedef RTL_PATH_TYPE(NTAPI* RtlDetermineDosPathNameType_U_t)(_In_ PCWSTR);
 #if (NTDDI_VERSION >= NTDDI_WS03)
@@ -1633,6 +1678,18 @@ extern "C"
     typedef PIMAGE_NT_HEADERS(NTAPI* RtlImageNtHeader_t)(_In_ PVOID);
     typedef PVOID(NTAPI* RtlImageDirectoryEntryToData_t)(_In_ PVOID, _In_ BOOLEAN, _In_ USHORT, _Out_ PULONG);
     typedef PVOID(NTAPI* RtlImageRvaToVa_t)(_In_ PIMAGE_NT_HEADERS, _In_ PVOID, _In_ ULONG, _Inout_opt_ PIMAGE_SECTION_HEADER*);
+    // Debugging
+    typedef ULONG (__cdecl* DbgPrint_t)(_In_z_ _Printf_format_string_ PCSTR, ...);
+#    if (NTDDI_VERSION >= NTDDI_WINXP)
+    typedef ULONG (__cdecl * DbgPrintEx_t)(_In_ ULONG, _In_ ULONG, _In_z_ _Printf_format_string_ PCSTR, ...);
+#    endif
+
+#    ifdef _VA_LIST_DEFINED
+#        if (NTDDI_VERSION >= NTDDI_WINXP)
+    typedef ULONG (NTAPI *vDbgPrintEx_t)(_In_ ULONG, _In_ ULONG, _In_z_ PCCH, _In_ va_list);
+    typedef ULONG (NTAPI *vDbgPrintExWithPrefix_t)(_In_z_ PCCH, _In_ ULONG, _In_ ULONG, _In_z_ PCCH, _In_ va_list);
+#        endif
+#    endif // _VA_LIST_DEFINED
     // Those from wintrnl.h
     typedef NTSTATUS(NTAPI* NtClose_t)(_In_ HANDLE); // winternl.h
     typedef ULONG(NTAPI* RtlNtStatusToDosError_t)(_In_ NTSTATUS); // winternl.h
@@ -1783,6 +1840,97 @@ extern "C"
 #define ZwUnmapViewOfSection       NtUnmapViewOfSection
 #define ZwWaitForSingleObject      NtWaitForSingleObject
 
+#ifndef NtCurrentProcess
+#    define NtCurrentProcess() ((HANDLE)(LONG_PTR)-1)
+#endif
+#ifndef ZwCurrentProcess
+#    define ZwCurrentProcess() NtCurrentProcess()
+#endif
+#ifndef NtCurrentThread
+#    define NtCurrentThread() ((HANDLE)(LONG_PTR)-2)
+#endif
+#ifndef ZwCurrentThread
+#    define ZwCurrentThread() NtCurrentThread()
+#endif
+#ifndef NtCurrentSession
+#    define NtCurrentSession() ((HANDLE)(LONG_PTR)-3)
+#endif
+#ifndef ZwCurrentSession
+#    define ZwCurrentSession() NtCurrentSession()
+#endif
+
+#if defined(__cplusplus)
+    namespace NT
+    {
+#endif
+#if !defined(__NTPEBLDR_H_VER__)
+        typedef struct _TEB // xref: http://terminus.rewolf.pl/terminus/structures/ntdll/_TEB_combined.html
+        {
+            NT_TIB NtTib;
+            PVOID EnvironmentPointer;
+            struct
+            {
+                HANDLE UniqueProcess;
+                HANDLE UniqueThread;
+            } ClientId;
+            PVOID ActiveRpcHandle;
+            PVOID ThreadLocalStoragePointer;
+            struct _PEB* ProcessEnvironmentBlock;
+            ULONG LastErrorValue;
+            ULONG CountOfOwnedCriticalSections;
+            PVOID CsrClientThread;
+            PVOID Win32ThreadInfo;
+            ULONG User32Reserved[26];
+            ULONG UserReserved[5];
+            PVOID WOW32Reserved;
+            LCID CurrentLocale;
+            ULONG FpSoftwareStatusRegister;
+            PVOID ReservedForDebuggerInstrumentation[16];
+            PVOID SystemReserved1[38];
+            NTSTATUS ExceptionCode;
+#    ifdef _M_X64
+            ULONG UnknownAndDontCare[0x55D];
+#    elif defined(_M_IX86)
+            ULONG UnknownAndDontCare[0x396];
+#    endif // _M_X64
+           // Padding up to size 0x1838
+        } TEB, *PTEB;
+#endif // !defined(__NTPEBLDR_H_VER__)
+
+    static inline TEB* NtCurrentTeb()
+    {
+#    if defined(_WIN64) && defined(_M_X64)
+        return (TEB*)__readgsqword(FIELD_OFFSET(NT_TIB, Self));
+#        ifdef _MSVC_LANG
+        static_assert(FIELD_OFFSET(NT_TIB, Self) == 0x30, "Something is wrong with the NT_TIB struct");
+#        endif // _MSVC_LANG
+#    elif defined(_WIN32) && defined(_M_IX86)
+#        pragma warning(suppress : 4312)
+        return (TEB*)__readfsdword(FIELD_OFFSET(NT_TIB, Self));
+#        ifdef _MSVC_LANG
+        static_assert(FIELD_OFFSET(NT_TIB, Self) == 0x18, "Something is wrong with the NT_TIB struct");
+#        endif // _MSVC_LANG
+#    else
+#        error This isn't currently implemented on the current platform, it seems. Review the code, implement it and retry.
+#    endif
+    }
+#if defined(__cplusplus)
+    } // namespace NT
+#endif
+
+    static inline ULONG NTAPI RtlSetLastWin32Error(DWORD dwError)
+    {
+        ((NT::TEB*)NT::NtCurrentTeb())->LastErrorValue = dwError;
+        return dwError;
+    }
+
+    static inline DWORD RtlSetLastWin32ErrorAndNtStatusFromNtStatus(NTSTATUS Status)
+    {
+        DWORD dwWin32Error = ::RtlNtStatusToDosError(Status); // ERROR_MR_MID_NOT_FOUND if no corresponding Win32 status exists
+        ::RtlSetLastWin32Error(dwWin32Error);                 // RtlSetLastWin32Error
+        return dwWin32Error;
+    }
+
 #if defined(__cplusplus)
 }
 #endif
@@ -1817,7 +1965,7 @@ namespace NT
     static UNICODE_STRING const sNtObjMgrNsPfx = RTL_CONSTANT_STRING(NT_OBJMGR_NAMESPACE);
 
 #if defined(__cplusplus)
-}
+} // namespace NT
 #endif
 
 #if defined(__cplusplus) && !defined(__NTPEBLDR_H_VER__)

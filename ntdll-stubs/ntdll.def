@@ -1,6 +1,10 @@
 LIBRARY ntdll.dll
 
 EXPORTS
+    DbgPrint
+    DbgPrintEx
+    vDbgPrintEx
+    vDbgPrintExWithPrefix
     NtAdjustGroupsToken
     NtAdjustPrivilegesToken
     NtClose
@@ -118,6 +122,7 @@ EXPORTS
     RtlNtStatusToDosError
     RtlPrefixUnicodeString
     RtlSetGroupSecurityDescriptor
+    ; RtlSetLastWin32Error
     RtlSetOwnerSecurityDescriptor
     RtlSubAuthorityCountSid
     RtlSubAuthoritySid

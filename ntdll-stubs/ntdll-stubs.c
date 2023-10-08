@@ -122,6 +122,14 @@
 #    define _Writable_elements_(x)
 #endif
 
+#ifndef _In_opt_z_
+#    define _In_opt_z_
+#endif
+
+#ifndef _Printf_format_string_
+#    define _Printf_format_string_
+#endif
+
 typedef struct
 {
     int x;
@@ -159,6 +167,33 @@ typedef int KEY_INFORMATION_CLASS;           // enum
 typedef int KEY_VALUE_INFORMATION_CLASS;     // enum
 typedef int KEY_SET_INFORMATION_CLASS;       // enum
 typedef ULONG SECTION_INHERIT;
+typedef char* va_list;
+
+ULONG
+__cdecl DbgPrint(_In_z_ _Printf_format_string_ PCSTR Format, ...)
+{
+    return 0;
+}
+
+ULONG
+__cdecl DbgPrintEx(_In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ _Printf_format_string_ PCSTR Format, ...)
+{
+    return 0;
+}
+
+ULONG
+NTAPI
+vDbgPrintEx(_In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ PCCH Format, _In_ va_list arglist)
+{
+    return 0;
+}
+
+ULONG
+NTAPI
+vDbgPrintExWithPrefix(_In_z_ PCCH Prefix, _In_ ULONG ComponentId, _In_ ULONG Level, _In_z_ PCCH Format, _In_ va_list arglist)
+{
+    return 0;
+}
 
 NTSTATUS
 NTAPI
@@ -891,6 +926,7 @@ _Success_(return != 0) BOOLEAN NTAPI RtlDosPathNameToNtPathName_U(_In_ PCWSTR Do
     return FALSE;
 }
 
+#if 1 || (NTDDI_VERSION >= NTDDI_WS03) // it goes into the import lib always
 NTSTATUS
 NTAPI
 RtlDosPathNameToNtPathName_U_WithStatus(_In_ PCWSTR DosFileName,
@@ -918,6 +954,7 @@ RtlDosPathNameToRelativeNtPathName_U_WithStatus(_In_ PCWSTR DosFileName,
 {
     return 0;
 }
+#endif // (NTDDI_VERSION >= NTDDI_WS03)
 
 WCHAR
 NTAPI
@@ -1151,6 +1188,15 @@ RtlSetGroupSecurityDescriptor(_Inout_ PSECURITY_DESCRIPTOR SecurityDescriptor, _
 {
     return 0;
 }
+
+#if 0
+ULONG
+NTAPI
+RtlSetLastWin32Error(DWORD dwError)
+{
+    return 0;
+}
+#endif
 
 NTSTATUS
 NTAPI

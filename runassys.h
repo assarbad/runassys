@@ -31,12 +31,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef __RUNASSYS_H_VERSION__
-#define __RUNASSYS_H_VERSION__ 2023100621
+#define __RUNASSYS_H_VERSION__ 2023100723
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #    pragma once
 #endif
 
+#define NtCurrentTeb NtCurrentTeb_Mock
 #include "exeversion.h"
 #include <Windows.h>
 #include <tchar.h>
@@ -51,6 +52,7 @@
 #ifndef _MSVC_LANG
 #    pragma warning(pop)
 #endif // _MSVC_LANG
+#undef NtCurrentTeb
 #include "ntnative.h"
 
 #ifndef _MSVC_LANG
@@ -59,9 +61,6 @@
 
 namespace RAS
 {
-    extern "C" typedef NTSTATUS(NTAPI* NtDuplicateToken_t)(
-        _In_ HANDLE, _In_ ACCESS_MASK, _In_ POBJECT_ATTRIBUTES, _In_ BOOLEAN, _In_ TOKEN_TYPE, _Out_ PHANDLE);
-
 #if !defined(SECURITY_DYNAMIC_TRACKING) && !defined(SECURITY_STATIC_TRACKING)
 #    define SECURITY_DYNAMIC_TRACKING (TRUE)
 #    define SECURITY_STATIC_TRACKING  (FALSE)
@@ -79,13 +78,6 @@ namespace RAS
 
     namespace impl
     {
-        DWORD BaseSetLastNTError(NTSTATUS Status)
-        {
-            DWORD dwWin32Error = RtlNtStatusToDosError(Status); // ERROR_MR_MID_NOT_FOUND if no corresponding Win32 status exists
-            ::SetLastError(dwWin32Error);                       // RtlSetLastWin32Error
-            return dwWin32Error;
-        }
-
         BOOL WINAPI DuplicateTokenEx(HANDLE hExistingToken,
                                      DWORD dwDesiredAccess,
                                      LPSECURITY_ATTRIBUTES lpTokenAttributes,
@@ -103,12 +95,12 @@ namespace RAS
             }
             SECURITY_QUALITY_OF_SERVICE sqs = {sizeof(SECURITY_QUALITY_OF_SERVICE), ImpersonationLevel, SECURITY_STATIC_TRACKING, TRUE};
             oa.SecurityQualityOfService = &sqs;
-            NTSTATUS Status = NtDuplicateToken(hExistingToken, dwDesiredAccess, &oa, 0, TokenType, phNewToken);
+            NTSTATUS Status = ::NtDuplicateToken(hExistingToken, dwDesiredAccess, &oa, 0, TokenType, phNewToken);
             if (NT_SUCCESS(Status))
             {
                 return TRUE;
             }
-            BaseSetLastNTError(Status);
+            ::RtlSetLastWin32ErrorAndNtStatusFromNtStatus(Status);
             return FALSE;
         }
     } // namespace impl
@@ -571,19 +563,19 @@ namespace RAS
         static inline HANDLE OpenProcessToken_(HANDLE hProcess, DWORD dwDesiredAccess)
         {
             HANDLE hToken = NULL;
-            BOOL bOpened = ::OpenProcessToken(hProcess, dwDesiredAccess, &hToken);
-            if (!bOpened)
+            NTSTATUS Status = ::NtOpenProcessToken(hProcess, dwDesiredAccess, &hToken);
+            if (!NT_SUCCESS(Status))
             {
                 return NULL;
             }
             return hToken;
         }
 
-        static inline HANDLE OpenThreadToken_(HANDLE hThread, DWORD dwDesiredAccess, BOOL OpenAsSelf = FALSE)
+        static inline HANDLE OpenThreadToken_(HANDLE hThread, DWORD dwDesiredAccess, BOOLEAN OpenAsSelf = FALSE)
         {
             HANDLE hToken = NULL;
-            BOOL bOpened = ::OpenThreadToken(hThread, dwDesiredAccess, OpenAsSelf, &hToken);
-            if (!bOpened)
+            NTSTATUS Status = ::NtOpenThreadToken(hThread, dwDesiredAccess, OpenAsSelf, &hToken);
+            if (!NT_SUCCESS(Status))
             {
                 return NULL;
             }
@@ -596,6 +588,89 @@ namespace RAS
         CToken();
 #endif
         friend class CEnvironmentBlock;
+        friend class CTokenInfo;
+    };
+
+    class CTokenInfo
+    {
+        HANDLE const& m_hToken; //-V122
+        mutable LONG m_lLastError;
+
+      public:
+        explicit CTokenInfo(HANDLE hToken)
+            : m_hToken(hToken)
+            , m_lLastError(ERROR_SUCCESS)
+        {
+        }
+
+        explicit CTokenInfo(CToken const& rvalue)
+            : m_hToken(rvalue.m_hToken)
+            , m_lLastError(ERROR_SUCCESS)
+        {
+        }
+
+        ~CTokenInfo()
+        {
+        }
+
+        inline bool operator!() const
+        {
+            return (m_lLastError != ERROR_SUCCESS) || (m_hToken == NULL);
+        }
+
+        inline operator bool() const
+        {
+            return !operator!();
+        }
+
+        inline LONG LastError() const
+        {
+            return m_lLastError;
+        }
+
+        inline void GetTokenInfo()
+        {
+            //::GetTokenInformation(m_hToken, )
+            // TokenUser
+            // TokenGroups
+            // TokenPrivileges
+            // TokenOwner
+            // TokenPrimaryGroup
+            // TokenDefaultDacl
+            // TokenSource
+            // TokenType
+            // TokenImpersonationLevel
+            // TokenStatistics (possibly can be used to save on some of the other types)
+            // TokenRestrictedSids
+            // TokenSessionId
+            // TokenGroupsAndPrivileges
+            // TokenSandBoxInert
+            // TokenOrigin // max. in W2K3
+            // TokenElevationType
+            // TokenLinkedToken
+            // TokenElevation
+            // TokenHasRestrictions (filtered?)
+            // TokenAccessInformation
+            // TokenVirtualizationAllowed
+            // TokenVirtualizationEnabled
+            // TokenIntegrityLevel
+            // TokenUIAccess
+            // TokenMandatoryPolicy
+            // TokenLogonSid
+        }
+
+        inline void CacheTokenInfo()
+        {
+        }
+
+      private:
+#ifdef _MSVC_LANG
+        CTokenInfo(CTokenInfo&) = delete;
+        CTokenInfo& operator=(CTokenInfo&) = delete;
+#else
+        CTokenInfo(CTokenInfo&);
+        CTokenInfo& operator=(CTokenInfo&);
+#endif
     };
 
     class CThreadToken : public CToken
@@ -603,8 +678,8 @@ namespace RAS
         typedef CToken Inherited;
 
       public:
-        explicit CThreadToken(DWORD dwDesiredAccess = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, BOOL OpenAsSelf = FALSE)
-            : Inherited(Inherited::OpenThreadToken_(GetCurrentThread(), dwDesiredAccess, OpenAsSelf))
+        explicit CThreadToken(DWORD dwDesiredAccess = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, BOOLEAN OpenAsSelf = FALSE)
+            : Inherited(Inherited::OpenThreadToken_(NtCurrentThread(), dwDesiredAccess, OpenAsSelf))
         {
             if (!Inherited::m_hToken)
             {
@@ -612,7 +687,7 @@ namespace RAS
             }
         }
 
-        explicit CThreadToken(HANDLE hThread, DWORD dwDesiredAccess = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, BOOL OpenAsSelf = FALSE)
+        explicit CThreadToken(HANDLE hThread, DWORD dwDesiredAccess = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, BOOLEAN OpenAsSelf = FALSE)
             : Inherited(Inherited::OpenThreadToken_(hThread, dwDesiredAccess, OpenAsSelf))
         {
             if (!Inherited::m_hToken)
@@ -641,7 +716,7 @@ namespace RAS
 
       public:
         explicit CProcessToken(DWORD dwDesiredAccess = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY)
-            : Inherited(Inherited::OpenProcessToken_(GetCurrentProcess(), dwDesiredAccess))
+            : Inherited(Inherited::OpenProcessToken_(NtCurrentProcess(), dwDesiredAccess))
         {
             if (!Inherited::m_hToken)
             {

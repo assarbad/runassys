@@ -90,6 +90,7 @@ solution ("runassys")
             libdirs         {"$(IntDir)"}
             links           {"ntdll",}
             linkoptions     {"/pdbaltpath:%_PDB%"}
+            flags           {"StaticRuntime", "NoManifest"}
 
         configuration {"vs2002 or vs2003 or vs2005 or vs2008", "Debug", "x32"}
             targetsuffix    ("32D")
